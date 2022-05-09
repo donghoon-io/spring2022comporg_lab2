@@ -10,7 +10,7 @@ tests = [
           [ 'task2/2', 'data/task2/2/inst_disassembled.mem', 'data/task2/2/reg-out.mem' ],
           [ 'task3/1', 'data/task3/1/inst_disassembled.mem', 'data/task3/1/reg-out.mem' ],
           [ 'task4/1', 'data/task4/1/inst_disassembled.mem', 'data/task4/1/reg-out.mem' ],
-          [ 'task4/2', 'data/task4/1/inst_disassembled.mem', 'data/task4/1/reg-out.mem' ],
+          [ 'task4/2', 'data/task4/2/inst_disassembled.mem', 'data/task4/2/reg-out.mem' ],
           [ 'task5/1', 'data/task5/1/inst_disassembled.mem', 'data/task5/1/reg-out.mem' ],
           [ 'task6/1', 'data/task6/1/inst_disassembled.mem', 'data/task6/1/reg-out.mem' ],
           [ 'task6/2', 'data/task6/2/inst_disassembled.mem', 'data/task6/2/reg-out.mem' ],

@@ -5,7 +5,12 @@
 // TODO: declare propoer input and output ports and implement the
 // hazard detection unit
 
-module hazard (
+module hazard ( //UNDONE
+    input [4:0] rs1_id,
+    input [4:0] rs2_id,
+    input [4:0] rd_ex,
+
+    output flush, stall
 );
 
 

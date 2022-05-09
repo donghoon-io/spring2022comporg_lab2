@@ -19,10 +19,9 @@ module simple_cpu
 ///////////////////////////////////////////////////////////////////////////////
 // TODO:  Declare all wires / registers that are needed
 ///////////////////////////////////////////////////////////////////////////////
-// e.g., wire [DATA_WIDTH-1:0] if_pc_plus_4;
-// 1) Pipeline registers (wires to / from pipeline register modules)
-// 2) In / Out ports for other modules
-// 3) Additional wires for multiplexers or other mdoules you instantiate
+wire [DATA_WIDTH-1:0] if_pc_plus_4, if_instruction, id_pc, id_pc_plus_4, id_instruction, id_sextimm;
+wire flush, stall;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Instruction Fetch (IF)
@@ -34,10 +33,10 @@ wire [DATA_WIDTH-1:0] NEXT_PC;
 
 /* m_next_pc_adder */
 adder m_pc_plus_4_adder(
-  .in_a   (),
-  .in_b   (),
+  .in_a   (PC),
+  .in_b   (32'h00000040),
 
-  .result ()
+  .result (if_pc_plus_4)
 );
 
 always @(posedge clk) begin
@@ -49,22 +48,26 @@ end
 
 /* instruction: read current instruction from inst mem */
 instruction_memory m_instruction_memory(
-  .address    (),
+  .address    (PC),
 
-  .instruction()
+  .instruction(if_instruction)
 );
 
 /* forward to IF/ID stage registers */
 ifid_reg m_ifid_reg(
-  // TODO: Add flush or stall signal if it is needed
-  .clk            (),
-  .if_PC          (),
-  .if_pc_plus_4   (),
-  .if_instruction (),
+  // TODO: Add flush or stall signal if it is needed (DONE)
+  .clk            (clk),
+  .if_PC          (PC),
+  .if_pc_plus_4   (if_pc_plus_4),
+  .if_instruction (if_instruction),
 
-  .id_PC          (),
-  .id_pc_plus_4   (),
-  .id_instruction ()
+  // below are added
+  //.flush(flush),
+  //.stall(stall),
+
+  .id_PC          (id_pc),
+  .id_pc_plus_4   (id_pc_plus_4),
+  .id_instruction (id_instruction)
 );
 
 
@@ -77,81 +80,106 @@ hazard m_hazard(
   // TODO: implement hazard detection unit & do wiring
 );
 
+// DEFINED
+wire [1:0] id_jump, id_alu_op;
+wire id_branch, id_alu_src, id_mem_read, id_mem_write, id_mem_to_reg, id_reg_write;
+
 /* m_control: control unit */
 control m_control(
-  .opcode     (),
+  .opcode     (id_instruction[6:0]),
 
-  .jump       (),
-  .branch     (),
-  .alu_op     (),
-  .alu_src    (),
-  .mem_read   (),
-  .mem_to_reg (),
-  .mem_write  (),
-  .reg_write  ()
+  .jump       (id_jump),
+  .branch     (id_branch),
+  .alu_op     (id_alu_op),
+  .alu_src    (id_alu_src),
+  .mem_read   (id_mem_read),
+  .mem_to_reg (id_mem_to_reg),
+  .mem_write  (id_mem_write),
+  .reg_write  (id_reg_write)
 );
 
 /* m_imm_generator: immediate generator */
 immediate_generator m_immediate_generator(
-  .instruction(),
+  .instruction(id_instruction),
 
-  .sextimm    ()
+  .sextimm    (id_sextimm)
 );
+
+//DEFINED
+wire [4:0] write_reg;
+wire [DATA_WIDTH-1:0] wb_to_write, id_data_1, id_data_2;
+wire wb_reg_write;
 
 /* m_register_file: register file */
 register_file m_register_file(
-  .clk        (),
-  .readreg1   (),
-  .readreg2   (),
-  .writereg   (),
-  .wen        (),
-  .writedata  (),
+  .clk        (clk),
+  .readreg1   (id_instruction[19:15]),
+  .readreg2   (id_instruction[24:20]),
+  .writereg   (write_reg),
+  .wen        (wb_reg_write),
+  .writedata  (wb_to_write),
 
-  .readdata1  (),
-  .readdata2  ()
+  .readdata1  (id_data_1),
+  .readdata2  (id_data_2)
 );
+
+//DEFINED
+
+wire [DATA_WIDTH-1:0] ex_pc_target;
+
+wire [DATA_WIDTH-1:0] ex_pc, ex_pc_plus_4, ex_sextimm;
+wire [1:0] ex_jump, ex_alu_op;
+wire ex_branch, ex_alu_src, ex_mem_read, ex_mem_write, ex_mem_to_reg, ex_reg_write;
+
+wire [6:0] ex_func7;
+wire [2:0] ex_func3;
+
+wire [DATA_WIDTH-1:0] ex_readdata1, ex_readdata2;
+wire [4:0] ex_rs1, ex_rs2, ex_rd;
 
 /* forward to ID/EX stage registers */
 idex_reg m_idex_reg(
   // TODO: Add flush or stall signal if it is needed
-  .clk          (),
-  .id_PC        (),
-  .id_pc_plus_4 (),
-  .id_jump      (),
-  .id_branch    (),
-  .id_aluop     (),
-  .id_alusrc    (),
-  .id_memread   (),
-  .id_memwrite  (),
-  .id_memtoreg  (),
-  .id_regwrite  (),
-  .id_sextimm   (),
-  .id_funct7    (),
-  .id_funct3    (),
-  .id_readdata1 (),
-  .id_readdata2 (),
-  .id_rs1       (),
-  .id_rs2       (),
-  .id_rd        (),
+  .clk          (clk),
+  .id_PC        (id_pc),
+  .id_pc_plus_4 (id_pc_plus_4),
+  .id_jump      (id_jump),
+  .id_branch    (id_branch),
+  .id_aluop     (id_alu_op),
+  .id_alusrc    (id_alu_src),
+  .id_memread   (id_mem_read),
+  .id_memwrite  (id_mem_write),
+  .id_memtoreg  (id_mem_to_reg),
+  .id_regwrite  (id_reg_write),
+  .id_sextimm   (id_sextimm),
+  .id_funct7    (id_instruction[31:25]), //31 -- 25
+  .id_funct3    (id_instruction[14:12]), //14 -- 12
+  .id_readdata1 (id_data_1),
+  .id_readdata2 (id_data_2),
+  .id_rs1       (id_instruction[19:15]), //19 -- 15
+  .id_rs2       (id_instruction[24:20]), //24 -- 20
+  .id_rd        (id_instruction[11:7]),
 
-  .ex_PC        (),
-  .ex_pc_plus_4 (),
-  .ex_jump      (),
-  .ex_branch    (),
-  .ex_aluop     (),
-  .ex_alusrc    (),
-  .ex_memread   (),
-  .ex_memwrite  (),
-  .ex_memtoreg  (),
-  .ex_regwrite  (),
-  .ex_sextimm   (),
-  .ex_funct7    (),
-  .ex_funct3    (),
-  .ex_readdata1 (),
-  .ex_readdata2 (),
-  .ex_rs1       (),
-  .ex_rs2       (),
-  .ex_rd        ()
+  // TODO: ADD SOME HERE
+
+  .ex_PC        (ex_pc),
+  .ex_pc_plus_4 (ex_pc_plus_4),
+  .ex_jump      (ex_jump),
+  .ex_branch    (ex_branch),
+  .ex_aluop     (ex_alu_op),
+  .ex_alusrc    (ex_alu_src),
+  .ex_memread   (ex_mem_read),
+  .ex_memwrite  (ex_mem_write),
+  .ex_memtoreg  (ex_mem_to_reg),
+  .ex_regwrite  (ex_reg_write),
+  .ex_sextimm   (ex_sextimm),
+  .ex_funct7    (ex_func7),
+  .ex_funct3    (ex_func3),
+  .ex_readdata1 (ex_readdata1),
+  .ex_readdata2 (ex_readdata2),
+  .ex_rs1       (ex_rs1),
+  .ex_rs2       (ex_rs2),
+  .ex_rd        (ex_rd)
 );
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -160,10 +188,10 @@ idex_reg m_idex_reg(
 
 /* m_branch_target_adder: PC + imm for branch address */
 adder m_branch_target_adder(
-  .in_a   (),
-  .in_b   (),
+  .in_a   (jump == {2{1'b0}} ? ex_pc:{ex_readdata1[31:1], 1'b0}), //cases from my previous lab1 proj -> 00:uncond
+  .in_b   (ex_sextimm),
 
-  .result ()
+  .result (ex_pc_target)
 );
 
 /* m_branch_control : checks T/NT */
@@ -195,14 +223,24 @@ alu m_alu(
 
 forwarding m_forwarding(
   // TODO: implement forwarding unit & do wiring
+
+  .rs1_ex(),
+  .rs2_ex(),
+  .rd_mem(),
+  .rd_wb(),
+  .regwrite_mem(),
+  .regwrite_wb(),
+
+  .forward_a(),
+  .forward_b()
 );
 
 /* forward to EX/MEM stage registers */
 exmem_reg m_exmem_reg(
   // TODO: Add flush or stall signal if it is needed
-  .clk            (),
-  .ex_pc_plus_4   (),
-  .ex_pc_target   (),
+  .clk            (clk),
+  .ex_pc_plus_4   (ex_pc_plus_4),
+  .ex_pc_target   (ex_pc_target),
   .ex_taken       (), 
   .ex_jump        (),
   .ex_memread     (),
@@ -235,7 +273,7 @@ exmem_reg m_exmem_reg(
 
 /* m_data_memory : main memory module */
 data_memory m_data_memory(
-  .clk         (),
+  .clk         (clk),
   .address     (),
   .write_data  (),
   .mem_read    (),
@@ -249,7 +287,7 @@ data_memory m_data_memory(
 /* forward to MEM/WB stage registers */
 memwb_reg m_memwb_reg(
   // TODO: Add flush or stall signal if it is needed
-  .clk            (),
+  .clk            (clk),
   .mem_pc_plus_4  (),
   .mem_jump       (),
   .mem_memtoreg   (),
