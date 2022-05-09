@@ -29,6 +29,8 @@ module exmem_reg #(
   input [2:0] ex_funct3,
   input [4:0] ex_rd,
   
+  input flush,
+
   //////////////////////////////////////
   // Outputs
   //////////////////////////////////////

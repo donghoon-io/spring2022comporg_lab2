@@ -287,6 +287,8 @@ exmem_reg m_exmem_reg(
   .ex_writedata   (),
   .ex_funct3      (ex_func3),
   .ex_rd          (ex_rd),
+
+  .flush (flush), //CHECK
   
   .mem_pc_plus_4  (mem_pc_plus_4),
   .mem_pc_target  (mem_pc_target),
