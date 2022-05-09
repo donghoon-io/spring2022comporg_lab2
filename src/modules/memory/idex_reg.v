@@ -38,6 +38,9 @@ module idex_reg #(
   input [4:0] id_rs2,
   input [4:0] id_rd,
 
+  input flush,
+  input stall,
+
   //////////////////////////////////////
   // Outputs
   //////////////////////////////////////

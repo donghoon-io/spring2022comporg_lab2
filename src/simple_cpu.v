@@ -78,6 +78,15 @@ ifid_reg m_ifid_reg(
 /* m_hazard: hazard detection unit */
 hazard m_hazard(
   // TODO: implement hazard detection unit & do wiring
+    .rs1_id(id_instruction[24:20]),
+    .rs2_id(id_instruction[19:15]),
+    .rd_ex(ex_rd), //rename for its consistency
+    .is_load(id_instruction[6:0] == 7'b0000011),
+    .is_valid(id_instruction[6:0] == 7'b0110011 || id_instruction[6:0] == 7'b0100011 || id_instruction[6:0] == 7'b1100011),
+    .taken(taken),
+
+    .flush(flush),
+    .stall(stall)
 );
 
 // DEFINED
@@ -108,7 +117,6 @@ immediate_generator m_immediate_generator(
 //DEFINED
 wire [4:0] write_reg;
 wire [DATA_WIDTH-1:0] wb_to_write, id_data_1, id_data_2;
-wire wb_reg_write;
 
 /* m_register_file: register file */
 register_file m_register_file(
@@ -129,7 +137,7 @@ wire [DATA_WIDTH-1:0] ex_pc_target;
 
 wire [DATA_WIDTH-1:0] ex_pc, ex_pc_plus_4, ex_sextimm;
 wire [1:0] ex_jump, ex_alu_op;
-wire ex_branch, ex_alu_src, ex_mem_read, ex_mem_write, ex_mem_to_reg, ex_reg_write;
+wire ex_branch, ex_taken, ex_alu_src, ex_mem_read, ex_mem_write, ex_mem_to_reg, ex_reg_write;
 
 wire [6:0] ex_func7;
 wire [2:0] ex_func3;
@@ -161,6 +169,9 @@ idex_reg m_idex_reg(
   .id_rd        (id_instruction[11:7]),
 
   // TODO: ADD SOME HERE
+  .flush(flush),
+  .stall(stall),
+  // ENDTODO
 
   .ex_PC        (ex_pc),
   .ex_pc_plus_4 (ex_pc_plus_4),
@@ -186,84 +197,109 @@ idex_reg m_idex_reg(
 // Execute (EX) 
 //////////////////////////////////////////////////////////////////////////////////
 
+
+//ADDED
+wire check, taken;
+wire [3:0] alu_func;
+
 /* m_branch_target_adder: PC + imm for branch address */
 adder m_branch_target_adder(
-  .in_a   (jump == {2{1'b0}} ? ex_pc:{ex_readdata1[31:1], 1'b0}), //cases from my previous lab1 proj -> 00:uncond
-  .in_b   (ex_sextimm),
+  .in_a   (jump == {2{1'b0}} ? ex_pc:{ex_readdata1 << 1}), //cases from my previous lab1 proj -> 00:uncond
+  .in_b   (ex_sextimm), //바꾸기
 
   .result (ex_pc_target)
 );
 
 /* m_branch_control : checks T/NT */
 branch_control m_branch_control(
-  .branch (),
-  .check  (),
+  .branch (ex_branch),
+  .check  (check),
   
-  .taken  ()
+  .taken  (taken)
 );
 
 /* alu control : generates alu_func signal */
 alu_control m_alu_control(
-  .alu_op   (),
-  .funct7   (),
-  .funct3   (),
+  .alu_op   (ex_alu_op),
+  .funct7   (ex_func7),
+  .funct3   (ex_func3),
 
-  .alu_func ()
+  .alu_func (alu_func)
 );
+
+wire [DATA_WIDTH-1:0] ex_alu_result;
 
 /* m_alu */
 alu m_alu(
-  .alu_func (),
+  .alu_func (alu_func),
   .in_a     (), 
   .in_b     (), 
 
-  .result   (),
-  .check    ()
+  .result   (ex_alu_result),
+  .check    (check)
 );
+
+wire forward_a, forward_b;
+
+wire [DATA_WIDTH-1:0] mem_alu_result;
+
+wire [4:0] mem_rd, wb_rd;
 
 forwarding m_forwarding(
   // TODO: implement forwarding unit & do wiring
 
-  .rs1_ex(),
-  .rs2_ex(),
-  .rd_mem(),
-  .rd_wb(),
-  .regwrite_mem(),
-  .regwrite_wb(),
+  .rs1_ex(ex_rs1), //naming convention 획일화
+  .rs2_ex(ex_rs2),
+  .rd_mem(mem_rd),
+  .rd_wb(wb_rd),
+  .regwrite_mem(mem_reg_write),
+  .regwrite_wb(wb_reg_write),
 
-  .forward_a(),
-  .forward_b()
+  .forward_a(forward_a),
+  .forward_b(forward_b)
 );
 
 /* forward to EX/MEM stage registers */
+
+wire [2:0] mem_func3;
+
+wire [DATA_WIDTH-1:0] mem_pc_target;
+
+wire [DATA_WIDTH-1:0] mem_pc_plus_4;
+wire [1:0] mem_jump;
+wire mem_taken, mem_mem_read, mem_mem_write, mem_mem_to_reg, mem_reg_write;
+
+
+wire [DATA_WIDTH-1:0] mem_writedata;
+
 exmem_reg m_exmem_reg(
   // TODO: Add flush or stall signal if it is needed
   .clk            (clk),
   .ex_pc_plus_4   (ex_pc_plus_4),
   .ex_pc_target   (ex_pc_target),
-  .ex_taken       (), 
-  .ex_jump        (),
-  .ex_memread     (),
-  .ex_memwrite    (),
-  .ex_memtoreg    (),
-  .ex_regwrite    (),
-  .ex_alu_result  (),
+  .ex_taken       (ex_taken), 
+  .ex_jump        (ex_jump),
+  .ex_memread     (ex_mem_read),
+  .ex_memwrite    (ex_mem_write),
+  .ex_memtoreg    (ex_mem_to_reg),
+  .ex_regwrite    (ex_reg_write),
+  .ex_alu_result  (ex_alu_result),
   .ex_writedata   (),
-  .ex_funct3      (),
-  .ex_rd          (),
+  .ex_funct3      (ex_func3),
+  .ex_rd          (ex_rd),
   
-  .mem_pc_plus_4  (),
-  .mem_pc_target  (),
-  .mem_taken      (), 
-  .mem_jump       (),
-  .mem_memread    (),
-  .mem_memwrite   (),
-  .mem_memtoreg   (),
-  .mem_regwrite   (),
-  .mem_alu_result (),
-  .mem_writedata  (),
-  .mem_funct3     (),
-  .mem_rd         ()
+  .mem_pc_plus_4  (mem_pc_plus_4),
+  .mem_pc_target  (mem_pc_target),
+  .mem_taken      (mem_taken), 
+  .mem_jump       (mem_jump),
+  .mem_memread    (mem_mem_read),
+  .mem_memwrite   (mem_mem_write),
+  .mem_memtoreg   (mem_mem_to_reg),
+  .mem_regwrite   (mem_reg_write),
+  .mem_alu_result (mem_alu_result),
+  .mem_writedata  (mem_writedata),
+  .mem_funct3     (mem_func3),
+  .mem_rd         (mem_rd)
 );
 
 
@@ -274,35 +310,41 @@ exmem_reg m_exmem_reg(
 /* m_data_memory : main memory module */
 data_memory m_data_memory(
   .clk         (clk),
-  .address     (),
-  .write_data  (),
-  .mem_read    (),
-  .mem_write   (),
-  .maskmode    (),
-  .sext        (),
+  .address     (mem_alu_result),
+  .write_data  (mem_writedata),
+  .mem_read    (mem_mem_read),
+  .mem_write   (mem_mem_write),
+  .maskmode    (mem_func3[1:0]),
+  .sext        (mem_func3[2]),
 
-  .read_data   ()
+  .read_data   (mem_readdata)
 );
+
+wire [DATA_WIDTH-1:0] mem_readdata, wb_readdata;
+wire [DATA_WIDTH-1:0] wb_alu_result;
+wire [DATA_WIDTH-1:0] wb_pc_plus_4;
+wire [1:0] wb_jump;
+wire wb_mem_to_reg, wb_reg_write;
 
 /* forward to MEM/WB stage registers */
 memwb_reg m_memwb_reg(
   // TODO: Add flush or stall signal if it is needed
   .clk            (clk),
-  .mem_pc_plus_4  (),
-  .mem_jump       (),
-  .mem_memtoreg   (),
-  .mem_regwrite   (),
-  .mem_readdata   (),
-  .mem_alu_result (),
-  .mem_rd         (),
+  .mem_pc_plus_4  (mem_pc_plus_4),
+  .mem_jump       (mem_jump),
+  .mem_memtoreg   (mem_mem_to_reg),
+  .mem_regwrite   (mem_reg_write),
+  .mem_readdata   (mem_readdata),
+  .mem_alu_result (mem_alu_result),
+  .mem_rd         (mem_rd),
 
-  .wb_pc_plus_4   (),
-  .wb_jump        (),
-  .wb_memtoreg    (),
-  .wb_regwrite    (),
-  .wb_readdata    (),
-  .wb_alu_result  (),
-  .wb_rd          ()
+  .wb_pc_plus_4   (wb_pc_plus_4),
+  .wb_jump        (wb_jump),
+  .wb_memtoreg    (wb_mem_to_reg),
+  .wb_regwrite    (wb_reg_write),
+  .wb_readdata    (wb_readdata),
+  .wb_alu_result  (wb_alu_result),
+  .wb_rd          (wb_rd)
 );
 
 //////////////////////////////////////////////////////////////////////////////////
