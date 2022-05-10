@@ -1,4 +1,4 @@
-// forwarding.v
+// forwarding.v //이상 무 //ppt에 따르면 순서 반대라 이걸 따라주는게 좋을듯..? 너무 자의적으로 해버림..
 
 // This module determines if the values need to be forwarded to the EX stage.
 
@@ -15,8 +15,8 @@ module forwarding (
   input regwrite_wb,
 
   // output data_spec name
-  output reg forward_a,
-  output reg forward_b
+  output reg [1:0] forward_a,
+  output reg [1:0] forward_b
 );
 
 // forward_a

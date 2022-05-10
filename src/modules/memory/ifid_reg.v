@@ -26,4 +26,14 @@ module ifid_reg #(
 
 // TODO: Implement IF/ID pipeline register module
 
+reg [DATA_WIDTH-1:0] id_PC;
+reg [DATA_WIDTH-1:0] id_pc_plus_4;
+reg [DATA_WIDTH-1:0] id_instruction;
+
+always @(*) begin
+  id_PC <= if_PC;
+  if_pc_plus_4 <= id_pc_plus_4;
+  if_instruction <= id_instruction;
+end
+
 endmodule

@@ -73,4 +73,55 @@ module idex_reg #(
 
 // TODO: Implement ID/EX pipeline register module
 
+reg [DATA_WIDTH-1:0] ex_PC;
+reg [DATA_WIDTH-1:0] ex_pc_plus_4;
+
+// ex control
+reg ex_branch;
+reg [1:0] ex_aluop;
+reg ex_alusrc;
+reg [1:0] ex_jump;
+
+// mem control
+reg ex_memread;
+reg ex_memwrite;
+
+// wb control
+reg ex_memtoreg;
+reg ex_regwrite;
+
+reg [DATA_WIDTH-1:0] ex_sextimm;
+reg [6:0] ex_funct7;
+reg [2:0] ex_funct3;
+reg [DATA_WIDTH-1:0] ex_readdata1;
+reg [DATA_WIDTH-1:0] ex_readdata2;
+reg [4:0] ex_rs1;
+reg [4:0] ex_rs2;
+reg [4:0] ex_rd;
+
+always @(*) begin
+  id_PC <= if_PC;
+  id_pc_plus_4 <= ex_pc_plus_4;
+  id_branch <= ex_branch;
+
+  id_alu_op <= ex_alu_op;
+  id_alusrc <= ex_alusrc;
+  id_jump <= ex_jump;
+
+  id_memread <= ex_memread;
+  id_memwrite <= ex_memwrite;
+
+  id_memtoreg <= ex_memtoreg;
+  id_regwrite <= ex_regwrite;
+
+  id_sextimm <= ex_sextimm;
+  id_funct7 <= ex_funct7;
+  id_funct3 <= ex_funct3;
+  id_readdata1 <= ex_readdata1;
+  id_readdata2 <= ex_readdata2;
+  id_rs1 <= ex_rs1;
+  id_rs2 <= ex_rs2;
+  id_rd <= ex_rd;
+end
+
 endmodule

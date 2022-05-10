@@ -62,8 +62,8 @@ ifid_reg m_ifid_reg(
   .if_instruction (if_instruction),
 
   // below are added
-  //.flush(flush),
-  //.stall(stall),
+  .flush(flush),
+  .stall(stall),
 
   .id_PC          (id_pc),
   .id_pc_plus_4   (id_pc_plus_4),
@@ -78,12 +78,12 @@ ifid_reg m_ifid_reg(
 /* m_hazard: hazard detection unit */
 hazard m_hazard(
   // TODO: implement hazard detection unit & do wiring
-    .rs1_id(id_instruction[24:20]),
-    .rs2_id(id_instruction[19:15]),
+    .rs1_id(id_instruction[19:15]),
+    .rs2_id(id_instruction[24:20]),
     .rd_ex(ex_rd), //rename for its consistency
     .is_load(id_instruction[6:0] == 7'b0000011),
     .is_valid(id_instruction[6:0] == 7'b0110011 || id_instruction[6:0] == 7'b0100011 || id_instruction[6:0] == 7'b1100011),
-    .taken(taken),
+    .taken(mem_taken),
 
     .flush(flush),
     .stall(stall)
@@ -199,7 +199,7 @@ idex_reg m_idex_reg(
 
 
 //ADDED
-wire check, taken;
+wire check, mem_taken;
 wire [3:0] alu_func;
 
 /* m_branch_target_adder: PC + imm for branch address */
@@ -215,7 +215,7 @@ branch_control m_branch_control(
   .branch (ex_branch),
   .check  (check),
   
-  .taken  (taken)
+  .taken  (mem_taken)
 );
 
 /* alu control : generates alu_func signal */
