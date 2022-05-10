@@ -30,10 +30,10 @@ reg [DATA_WIDTH-1:0] id_PC;
 reg [DATA_WIDTH-1:0] id_pc_plus_4;
 reg [DATA_WIDTH-1:0] id_instruction;
 
-always @(*) begin
+always @(posedge clk) begin
   id_PC <= if_PC;
-  if_pc_plus_4 <= id_pc_plus_4;
-  if_instruction <= id_instruction;
+  id_pc_plus_4 <= if_pc_plus_4;
+  id_instruction <= if_instruction;
 end
 
 endmodule

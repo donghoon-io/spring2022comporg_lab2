@@ -51,16 +51,16 @@ reg [DATA_WIDTH-1:0] wb_readdata;
 reg [DATA_WIDTH-1:0] wb_alu_result;
 reg [4:0] wb_rd;
 
-always @(*) begin
-  mem_pc_plus_4 <= wb_pc_plus_4;
+always @(posedge clk) begin
+  wb_pc_plus_4 <= mem_pc_plus_4;
 
-  mem_jump <= wb_jump;
-  mem_memtoreg <= wb_memtoreg;
-  mem_regwrite <= wb_regwrite;
+  wb_jump <= wb_jump;
+  wb_memtoreg <= mem_memtoreg;
+  wb_regwrite <= mem_regwrite;
 
-  mem_readdata <= wb_readdata;
-  mem_alu_result <= wb_alu_result;
-  mem_rd <= wb_rd;
+  wb_readdata <= mem_readdata;
+  wb_alu_result <= mem_alu_result;
+  wb_rd <= wb_rd;
 end
 
 endmodule

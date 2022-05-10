@@ -267,7 +267,7 @@ wire [DATA_WIDTH-1:0] mem_pc_target;
 
 wire [DATA_WIDTH-1:0] mem_pc_plus_4;
 wire [1:0] mem_jump;
-wire mem_taken, mem_mem_read, mem_mem_write, mem_mem_to_reg, mem_reg_write;
+wire mem_mem_read, mem_mem_write, mem_mem_to_reg, mem_reg_write;
 
 
 wire [DATA_WIDTH-1:0] mem_writedata;

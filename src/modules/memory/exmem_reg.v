@@ -73,22 +73,22 @@ reg [4:0] mem_rd;
 
 // TODO: Implement EX / MEM pipeline register module
 
-always @(*) begin
-  ex_pc_plus_4 <= mem_pc_plus_4;
-  ex_pc_target <= mem_pc_target;
-  ex_taken <= mem_taken;
+always @(posedge clk) begin
+  mem_pc_plus_4 <= ex_pc_plus_4;
+  mem_pc_target <= ex_pc_target;
+  mem_taken <= ex_taken;
 
-  ex_memread <= mem_memread;
-  ex_memwrite <= mem_memwrite;
+  mem_memread <= ex_memread;
+  mem_memwrite <= ex_memwrite;
 
-  ex_jump <= mem_jump;
-  ex_memtoreg <= mem_memtoreg;
-  ex_regwrite <= mem_regwrite;
+  mem_jump <= ex_jump;
+  mem_memtoreg <= ex_memtoreg;
+  mem_regwrite <= ex_regwrite;
 
-  ex_alu_result <= mem_alu_result;
-  ex_writedata <= mem_writedata;
-  ex_funct3 <= mem_funct3;
-  ex_rd <= mem_rd;
+  mem_alu_result <= ex_alu_result;
+  mem_writedata <= ex_writedata;
+  mem_funct3 <= ex_funct3;
+  mem_rd <= ex_rd;
 end
 
 endmodule

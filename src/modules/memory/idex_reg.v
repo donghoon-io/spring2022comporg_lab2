@@ -99,29 +99,29 @@ reg [4:0] ex_rs1;
 reg [4:0] ex_rs2;
 reg [4:0] ex_rd;
 
-always @(*) begin
-  id_PC <= if_PC;
-  id_pc_plus_4 <= ex_pc_plus_4;
-  id_branch <= ex_branch;
+always @(posedge clk) begin
+  ex_PC <= id_PC;
+  ex_pc_plus_4 <= id_pc_plus_4;
 
-  id_alu_op <= ex_alu_op;
-  id_alusrc <= ex_alusrc;
-  id_jump <= ex_jump;
+  ex_branch <= id_branch;
+  ex_alu_op <= id_alu_op;
+  ex_alusrc <= id_alusrc;
+  ex_jump <= id_jump;
 
-  id_memread <= ex_memread;
-  id_memwrite <= ex_memwrite;
+  ex_memread <= id_memread;
+  ex_memwrite <= id_memwrite;
 
-  id_memtoreg <= ex_memtoreg;
-  id_regwrite <= ex_regwrite;
+  ex_memtoreg <= id_memtoreg;
+  ex_regwrite <= id_regwrite;
 
-  id_sextimm <= ex_sextimm;
-  id_funct7 <= ex_funct7;
-  id_funct3 <= ex_funct3;
-  id_readdata1 <= ex_readdata1;
-  id_readdata2 <= ex_readdata2;
-  id_rs1 <= ex_rs1;
-  id_rs2 <= ex_rs2;
-  id_rd <= ex_rd;
+  ex_sextimm <= id_sextimm;
+  ex_funct7 <= id_funct7;
+  ex_funct3 <= id_funct3;
+  ex_readdata1 <= id_readdata1;
+  ex_readdata2 <= id_readdata2;
+  ex_rs1 <= id_rs1;
+  ex_rs2 <= id_rs2;
+  ex_rd <= id_rd;
 end
 
 endmodule
