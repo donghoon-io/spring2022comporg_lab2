@@ -19,9 +19,10 @@ module simple_cpu
 ///////////////////////////////////////////////////////////////////////////////
 // TODO:  Declare all wires / registers that are needed
 ///////////////////////////////////////////////////////////////////////////////
-wire [DATA_WIDTH-1:0] if_pc_plus_4, if_instruction, id_pc, id_pc_plus_4, id_instruction, id_sextimm;
-wire flush, stall;
-
+// e.g., wire [DATA_WIDTH-1:0] if_pc_plus_4;
+// 1) Pipeline registers (wires to / from pipeline register modules)
+// 2) In / Out ports for other modules
+// 3) Additional wires for multiplexers or other mdoules you instantiate
 
 ///////////////////////////////////////////////////////////////////////////////
 // Instruction Fetch (IF)
@@ -31,13 +32,117 @@ reg [DATA_WIDTH-1:0] PC;    // program counter (32 bits)
 
 wire [DATA_WIDTH-1:0] NEXT_PC;
 
+/* DONGHOON'S DEFINED WIRES */
+wire [DATA_WIDTH-1:0] if_pc_plus_4, if_instruction;
+
+wire [DATA_WIDTH-1:0] id_pc, id_pc_plus_4, id_instruction, id_sextimm, id_readdata1, id_readdata2;
+wire [1:0] id_jump, id_alu_op;
+wire id_branch, id_alu_src, id_mem_read, id_mem_write, id_mem_to_reg, id_reg_write;
+wire [4:0] id_write_reg;
+
+wire tot_stall, tot_flush; // where should these be located? -> penetrate throughout the whole procedure, so let's go with 'tot'
+
+wire [DATA_WIDTH-1:0] ex_pc, ex_pc_plus_4, ex_pc_target, ex_instruction, ex_sextimm, ex_readdata1, ex_readdata2, ex_writedata, ex_alu_result, ex_readdata2_after_mux, ex_feed_alu_a, ex_mem_writedata;
+reg [DATA_WIDTH-1:0] ex_feed_alu_b;
+wire [1:0] ex_jump, ex_alu_op, ex_forward_a, ex_forward_b;
+wire ex_branch, ex_alu_src, ex_mem_read, ex_mem_write, ex_mem_to_reg, ex_reg_write, ex_check;
+wire [4:0] ex_write_reg, ex_rs1, ex_rs2, ex_rd;
+wire [6:0] ex_funct7;
+wire [2:0] ex_funct3;
+wire [3:0] ex_alu_func;
+wire ex_taken;
+
+wire mem_taken;
+wire [DATA_WIDTH-1:0] mem_pc, mem_pc_plus_4, mem_pc_target, mem_instruction, mem_sextimm, mem_readdata, mem_writedata, mem_alu_result;
+wire [1:0] mem_jump, mem_alu_op;
+wire mem_branch, mem_alu_src, mem_mem_read, mem_mem_write, mem_mem_to_reg, mem_reg_write;
+wire [4:0] mem_write_reg, mem_rd;
+wire [2:0] mem_funct3;
+
+wire [DATA_WIDTH-1:0] wb_pc_plus_4, wb_readdata, wb_alu_result, wb_writedata;
+wire [1:0] wb_jump;
+wire wb_mem_to_reg, wb_reg_write;
+wire [4:0] wb_rd;
+
 /* m_next_pc_adder */
 adder m_pc_plus_4_adder(
   .in_a   (PC),
-  .in_b   (32'h00000040),
+  .in_b   (32'd4), // 이거랑 32'b의 차이를 좀 공부해야 할 듯. 같긴 한데 매번 헷갈림
 
   .result (if_pc_plus_4)
 );
+
+
+/*
+
+// DISCLAIMER: copied & pasted from my previous lab (lab1)
+// 굳이 이렇게 안해도 될듯
+
+wire [DATA_WIDTH-1:0] ex_sextimm_sum, ex_sextimm_rs1_sum;
+reg [DATA_WIDTH-1:0] ex_sextimm_sum_result;
+
+adder add_sextimm_sum(
+  .in_a(ex_pc),
+  .in_b(ex_sextimm),
+  .result(ex_sextimm_sum)
+);
+adder add_sextimm_rs1_sum(
+  .in_a(ex_readdata1),
+  .in_b(ex_sextimm),
+  .result(ex_sextimm_rs1_sum)
+);
+always @(*) begin
+  case (ex_jump)
+    {1'b0, 1'b0}: begin
+      case (ex_taken)
+      1'b1: begin
+        ex_sextimm_sum_result = ex_sextimm_sum;
+      end
+      1'b0: begin
+        ex_sextimm_sum_result = if_pc_plus_4;
+      end
+      default: begin
+        ex_sextimm_sum_result = if_pc_plus_4;
+      end
+      endcase
+    end
+    {1'b1, 1'b0}: begin
+      ex_sextimm_sum_result = ex_sextimm_sum;
+    end
+    {1'b0, 1'b1}: begin
+      ex_sextimm_sum_result = (ex_sextimm_rs1_sum/2) << 1;
+    end
+    default: begin
+      ex_sextimm_sum_result = if_pc_plus_4;
+    end
+  endcase
+end
+*/
+//DONE
+
+// ex인가 멤인가 헷갈림
+// i suspect it's mem but works well as is..
+
+// assign NEXT_PC = tot_stall ? PC : (ex_taken ? ex_pc_target : ex_pc_plus_4); -> 아님
+assign NEXT_PC = tot_stall ? PC : (ex_taken ? ex_pc_target : id_pc_plus_4);
+// TODO: consider flush/stall and make this adaptive to these values
+
+/*
+왜 안되는거지 -> reg wire 혼용해서 -> 위 assign 문으로 바꿈
+always @(*) begin
+  if (stall) begin
+    NEXT_PC = PC;
+  end
+  else begin
+    if (mem_taken) begin
+      NEXT_PC = mem_pc_target;
+    end
+    else begin
+      NEXT_PC = if_pc_plus_4;
+    end
+  end
+end
+*/
 
 always @(posedge clk) begin
   if (rstn == 1'b0) begin
@@ -55,15 +160,11 @@ instruction_memory m_instruction_memory(
 
 /* forward to IF/ID stage registers */
 ifid_reg m_ifid_reg(
-  // TODO: Add flush or stall signal if it is needed (DONE)
+  // TODO: Add flush or stall signal if it is needed
   .clk            (clk),
   .if_PC          (PC),
   .if_pc_plus_4   (if_pc_plus_4),
   .if_instruction (if_instruction),
-
-  // below are added
-  .flush(flush),
-  .stall(stall),
 
   .id_PC          (id_pc),
   .id_pc_plus_4   (id_pc_plus_4),
@@ -78,20 +179,16 @@ ifid_reg m_ifid_reg(
 /* m_hazard: hazard detection unit */
 hazard m_hazard(
   // TODO: implement hazard detection unit & do wiring
-    .rs1_id(id_instruction[19:15]),
-    .rs2_id(id_instruction[24:20]),
-    .rd_ex(ex_rd), //rename for its consistency
-    .is_load(id_instruction[6:0] == 7'b0000011),
-    .is_valid(id_instruction[6:0] == 7'b0110011 || id_instruction[6:0] == 7'b0100011 || id_instruction[6:0] == 7'b1100011),
-    .taken(mem_taken),
 
-    .flush(flush),
-    .stall(stall)
+    .id_instruction(id_instruction),
+    .ex_mem_read(ex_mem_read),
+    .taken(ex_taken),
+    .ex_rd(ex_rd),
+
+    
+    .flush(tot_flush),
+    .stall(tot_stall)
 );
-
-// DEFINED
-wire [1:0] id_jump, id_alu_op;
-wire id_branch, id_alu_src, id_mem_read, id_mem_write, id_mem_to_reg, id_reg_write;
 
 /* m_control: control unit */
 control m_control(
@@ -114,36 +211,18 @@ immediate_generator m_immediate_generator(
   .sextimm    (id_sextimm)
 );
 
-//DEFINED
-wire [4:0] write_reg;
-wire [DATA_WIDTH-1:0] wb_to_write, id_data_1, id_data_2;
-
 /* m_register_file: register file */
 register_file m_register_file(
   .clk        (clk),
   .readreg1   (id_instruction[19:15]),
   .readreg2   (id_instruction[24:20]),
-  .writereg   (write_reg),
+  .writereg   (wb_rd),
   .wen        (wb_reg_write),
-  .writedata  (wb_to_write),
+  .writedata  (wb_writedata),
 
-  .readdata1  (id_data_1),
-  .readdata2  (id_data_2)
+  .readdata1  (id_readdata1),
+  .readdata2  (id_readdata2)
 );
-
-//DEFINED
-
-wire [DATA_WIDTH-1:0] ex_pc_target;
-
-wire [DATA_WIDTH-1:0] ex_pc, ex_pc_plus_4, ex_sextimm;
-wire [1:0] ex_jump, ex_alu_op;
-wire ex_branch, ex_taken, ex_alu_src, ex_mem_read, ex_mem_write, ex_mem_to_reg, ex_reg_write;
-
-wire [6:0] ex_func7;
-wire [2:0] ex_func3;
-
-wire [DATA_WIDTH-1:0] ex_readdata1, ex_readdata2;
-wire [4:0] ex_rs1, ex_rs2, ex_rd;
 
 /* forward to ID/EX stage registers */
 idex_reg m_idex_reg(
@@ -160,18 +239,13 @@ idex_reg m_idex_reg(
   .id_memtoreg  (id_mem_to_reg),
   .id_regwrite  (id_reg_write),
   .id_sextimm   (id_sextimm),
-  .id_funct7    (id_instruction[31:25]), //31 -- 25
-  .id_funct3    (id_instruction[14:12]), //14 -- 12
-  .id_readdata1 (id_data_1),
-  .id_readdata2 (id_data_2),
-  .id_rs1       (id_instruction[19:15]), //19 -- 15
-  .id_rs2       (id_instruction[24:20]), //24 -- 20
+  .id_funct7    (id_instruction[31:25]), //이걸 하나의 변수로 저장해놔도 좋을듯 - 너무 숫자가 헷갈림
+  .id_funct3    (id_instruction[14:12]),
+  .id_readdata1 (id_readdata1),
+  .id_readdata2 (id_readdata2),
+  .id_rs1       (id_instruction[19:15]),
+  .id_rs2       (id_instruction[24:20]),
   .id_rd        (id_instruction[11:7]),
-
-  // TODO: ADD SOME HERE
-  .flush(flush),
-  .stall(stall),
-  // ENDTODO
 
   .ex_PC        (ex_pc),
   .ex_pc_plus_4 (ex_pc_plus_4),
@@ -184,8 +258,8 @@ idex_reg m_idex_reg(
   .ex_memtoreg  (ex_mem_to_reg),
   .ex_regwrite  (ex_reg_write),
   .ex_sextimm   (ex_sextimm),
-  .ex_funct7    (ex_func7),
-  .ex_funct3    (ex_func3),
+  .ex_funct7    (ex_funct7),
+  .ex_funct3    (ex_funct3),
   .ex_readdata1 (ex_readdata1),
   .ex_readdata2 (ex_readdata2),
   .ex_rs1       (ex_rs1),
@@ -197,15 +271,10 @@ idex_reg m_idex_reg(
 // Execute (EX) 
 //////////////////////////////////////////////////////////////////////////////////
 
-
-//ADDED
-wire check, mem_taken;
-wire [3:0] alu_func;
-
 /* m_branch_target_adder: PC + imm for branch address */
 adder m_branch_target_adder(
-  .in_a   (jump == {2{1'b0}} ? ex_pc:{ex_readdata1 << 1}), //cases from my previous lab1 proj -> 00:uncond
-  .in_b   (ex_sextimm), //바꾸기
+  .in_a   (ex_pc), //나중에 수정
+  .in_b   (ex_sextimm),
 
   .result (ex_pc_target)
 );
@@ -213,65 +282,83 @@ adder m_branch_target_adder(
 /* m_branch_control : checks T/NT */
 branch_control m_branch_control(
   .branch (ex_branch),
-  .check  (check),
+  .check  (ex_check),
   
-  .taken  (mem_taken)
+  .taken  (ex_taken)
 );
 
 /* alu control : generates alu_func signal */
 alu_control m_alu_control(
   .alu_op   (ex_alu_op),
-  .funct7   (ex_func7),
-  .funct3   (ex_func3),
+  .funct7   (ex_funct7),
+  .funct3   (ex_funct3),
 
-  .alu_func (alu_func)
+  .alu_func (ex_alu_func)
 );
 
-wire [DATA_WIDTH-1:0] ex_alu_result;
+mux_2x1 mux_alu(
+  .select(ex_alu_src),
+  .in1(ex_readdata2),
+  .in2(ex_sextimm),
+  .out(ex_readdata2_after_mux)
+);
+
+// Is there any way to elaborate this part better? random, messy, funny, raw
+
+always @(*) begin
+  if (ex_alu_src || ex_forward_b[1]) ex_feed_alu_b = ex_alu_src || ex_forward_b[0] ? ex_sextimm : wb_writedata;
+  else ex_feed_alu_b = ex_alu_src || ex_forward_b[0] ? mem_alu_result : ex_readdata2;
+end
 
 /* m_alu */
 alu m_alu(
-  .alu_func (alu_func),
-  .in_a     (), 
-  .in_b     (), 
+  .alu_func (ex_alu_func),
+  .in_a     (ex_feed_alu_a), 
+  .in_b     (ex_feed_alu_b),  //change
 
   .result   (ex_alu_result),
-  .check    (check)
+  .check    (ex_check)
 );
-
-wire forward_a, forward_b;
-
-wire [DATA_WIDTH-1:0] mem_alu_result;
-
-wire [4:0] mem_rd, wb_rd;
 
 forwarding m_forwarding(
   // TODO: implement forwarding unit & do wiring
+  .ex_rs1(ex_rs1),
+  .ex_rs2(ex_rs2),
+  .mem_rd(mem_rd),
+  .wb_rd(wb_rd),
+  .mem_reg_write(mem_reg_write),
+  .wb_reg_write(wb_reg_write),
 
-  .rs1_ex(ex_rs1), //naming convention 획일화
-  .rs2_ex(ex_rs2),
-  .rd_mem(mem_rd),
-  .rd_wb(wb_rd),
-  .regwrite_mem(mem_reg_write),
-  .regwrite_wb(wb_reg_write),
-
-  .forward_a(forward_a),
-  .forward_b(forward_b)
+  // output data_spec name
+  .forward_a(ex_forward_a),
+  .forward_b(ex_forward_b)
 );
 
+// %1 implement forwarding a part first % change case statement to mux
+
+mux_3x1 forwarding_a_mux(
+  .select(ex_forward_a),
+  .in1(ex_readdata1),
+  .in2(wb_writedata),
+  .in3(mem_alu_result),
+  
+  .out(ex_feed_alu_a)
+);
+
+// %1 implement forwarding b part first % change case statement to mux
+
+mux_3x1 forwarding_b_to_ex_mem_mux(
+  .select(ex_forward_b),
+  .in1(ex_readdata2), // ppt 대신 책 그림 보고 이해하기
+  .in2(wb_writedata),
+  .in3(mem_alu_result),
+  
+  .out(ex_mem_writedata)
+);
+
+// CAVEAT: I haven't checked if the ordering matters. Let's revisit here
+
 /* forward to EX/MEM stage registers */
-
-wire [2:0] mem_func3;
-
-wire [DATA_WIDTH-1:0] mem_pc_target;
-
-wire [DATA_WIDTH-1:0] mem_pc_plus_4;
-wire [1:0] mem_jump;
-wire mem_mem_read, mem_mem_write, mem_mem_to_reg, mem_reg_write;
-
-
-wire [DATA_WIDTH-1:0] mem_writedata;
-
 exmem_reg m_exmem_reg(
   // TODO: Add flush or stall signal if it is needed
   .clk            (clk),
@@ -284,11 +371,9 @@ exmem_reg m_exmem_reg(
   .ex_memtoreg    (ex_mem_to_reg),
   .ex_regwrite    (ex_reg_write),
   .ex_alu_result  (ex_alu_result),
-  .ex_writedata   (),
-  .ex_funct3      (ex_func3),
+  .ex_writedata   (ex_mem_writedata), // readdata1 안됨 -> 위에 로직 넣어서 수정함
+  .ex_funct3      (ex_funct3),
   .ex_rd          (ex_rd),
-
-  .flush (flush), //CHECK
   
   .mem_pc_plus_4  (mem_pc_plus_4),
   .mem_pc_target  (mem_pc_target),
@@ -300,7 +385,7 @@ exmem_reg m_exmem_reg(
   .mem_regwrite   (mem_reg_write),
   .mem_alu_result (mem_alu_result),
   .mem_writedata  (mem_writedata),
-  .mem_funct3     (mem_func3),
+  .mem_funct3     (mem_funct3),
   .mem_rd         (mem_rd)
 );
 
@@ -316,17 +401,11 @@ data_memory m_data_memory(
   .write_data  (mem_writedata),
   .mem_read    (mem_mem_read),
   .mem_write   (mem_mem_write),
-  .maskmode    (mem_func3[1:0]),
-  .sext        (mem_func3[2]),
+  .maskmode    (mem_funct3[1:0]),
+  .sext        (mem_funct3[2]),
 
   .read_data   (mem_readdata)
 );
-
-wire [DATA_WIDTH-1:0] mem_readdata, wb_readdata;
-wire [DATA_WIDTH-1:0] wb_alu_result;
-wire [DATA_WIDTH-1:0] wb_pc_plus_4;
-wire [1:0] wb_jump;
-wire wb_mem_to_reg, wb_reg_write;
 
 /* forward to MEM/WB stage registers */
 memwb_reg m_memwb_reg(
@@ -352,6 +431,16 @@ memwb_reg m_memwb_reg(
 //////////////////////////////////////////////////////////////////////////////////
 // Write Back (WB) 
 //////////////////////////////////////////////////////////////////////////////////
+
+// implement mux wb
+// DISCLAIMER: copied & pasted from my prev lab (lab1)
+
+mux_2x1 mux_wb(
+  .select(wb_jump == {2{1'b0}} ? 1'b0:1'b1),
+  .in1(wb_mem_to_reg == 1'b0 ? wb_alu_result:wb_readdata),
+  .in2(wb_pc_plus_4),
+  .out(wb_writedata)
+);
 
 
 endmodule

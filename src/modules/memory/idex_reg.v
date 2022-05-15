@@ -38,9 +38,6 @@ module idex_reg #(
   input [4:0] id_rs2,
   input [4:0] id_rd,
 
-  input flush,
-  input stall,
-
   //////////////////////////////////////
   // Outputs
   //////////////////////////////////////
@@ -104,7 +101,7 @@ always @(posedge clk) begin
   ex_pc_plus_4 <= id_pc_plus_4;
 
   ex_branch <= id_branch;
-  ex_alu_op <= id_alu_op;
+  ex_aluop <= id_aluop;
   ex_alusrc <= id_alusrc;
   ex_jump <= id_jump;
 

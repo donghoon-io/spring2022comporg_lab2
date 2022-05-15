@@ -54,13 +54,13 @@ reg [4:0] wb_rd;
 always @(posedge clk) begin
   wb_pc_plus_4 <= mem_pc_plus_4;
 
-  wb_jump <= wb_jump;
+  wb_jump <= mem_jump;
   wb_memtoreg <= mem_memtoreg;
   wb_regwrite <= mem_regwrite;
 
   wb_readdata <= mem_readdata;
   wb_alu_result <= mem_alu_result;
-  wb_rd <= wb_rd;
+  wb_rd <= mem_rd;
 end
 
 endmodule

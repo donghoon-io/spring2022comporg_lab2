@@ -5,25 +5,28 @@
 // TODO: declare propoer input and output ports and implement the
 // hazard detection unit
 
-module hazard ( //UNDONE
-    input [4:0] rs1_id, rs2_id, rd_ex,
-    input is_load, is_valid, taken, //idk it requires
+module hazard #(parameter DATA_WIDTH = 32)( // DISCLAIMER: 
+    // stall = {(rs1_id == rd_ex && use_rs1(ir_id)) || (rs2_id == rd_ex && use_rs2(ir_id))} && memread_ex
 
-    output reg flush, stall
+    // inputs for stall detection as follows
+    input [DATA_WIDTH-1:0] id_instruction,
+    input ex_mem_read, taken,
+    input [4:0] ex_rd,
+
+    
+    output flush, stall
 );
 
-always @(*) begin
-    //stall
-    //semantic: stall = ((rs1_id == rd_ex && use_rs1_IR_ID) || (rs2_id == rd_ex && use_rs2_IR_ID)) && is_load
-    if (is_valid == 1'b1) begin
-        stall = is_valid ? ((rs1_id == rd_ex && rs1_id == 5'b00000) || (rs2_id == rd_ex && rs1_id == 5'b00000)) && is_load : 0;
-    end
-    else begin
-        stall = is_valid ? (rs1_id == rd_ex && rs1_id == 5'b00000) && is_load : 0;
-    end
+reg flush;
+reg stall;
 
-    //flush
-    flush = taken ? !stall : 0; // confict in mind
+always @(*) begin
+    // stall = {(rs1_id == rd_ex && use_rs1(ir_id)) || (rs2_id == rd_ex && use_rs2(ir_id))} && memread_ex;
+    stall = ((id_instruction[19:15] == ex_rd && id_instruction[19:15] != 5'b00000) || (id_instruction[24:20] == ex_rd && id_instruction[24:20] != 5'b00000)) && ex_mem_read;
+
+    // flush = taken;
+    flush = taken ? !stall : 0; // stall이 더 중요해?서 이렇게 해줘야하나 헷갈림
+    // 찾아보니 맞는듯?
 end
 
 endmodule
